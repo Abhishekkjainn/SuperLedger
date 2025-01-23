@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+
 export default function Inventory() {
   const navigate = useNavigate();
   const [inventoryData, setInventoryData] = useState([]);
@@ -70,39 +71,71 @@ export default function Inventory() {
   // Add or remove items from the billing cart
   const toggleItemInCart = (item, quantityChange) => {
     setBillingCart((prevCart) => {
-      // Check if the item is already in the cart
       const existingItem = prevCart.find(
         (cartItem) => cartItem.productId === item.productId
       );
 
       if (existingItem) {
-        // Update the quantity of the existing item
         const updatedCart = prevCart.map((cartItem) =>
           cartItem.productId === item.productId
             ? { ...cartItem, quantity: cartItem.quantity + quantityChange }
             : cartItem
         );
-        return updatedCart.filter((cartItem) => cartItem.quantity > 0); // Ensure quantity doesn't go below 1
+        return updatedCart.filter((cartItem) => cartItem.quantity > 0);
       } else {
-        // Add the item to the cart with an initial quantity of 1
         return [...prevCart, { ...item, quantity: 1 }];
       }
     });
   };
 
   // Calculate the total price with GST (assuming 18% GST)
-  // Calculate total price with GST and quantity adjustments
   const calculateTotal = () => {
     return billingCart.reduce((total, item) => {
-      const sellingPrice = parseFloat(item.sellingPrice); // Ensure sellingPrice is a number
-      const gst = sellingPrice * 0.18; // 18% GST
-      const totalPriceWithGST = (sellingPrice + gst) * item.quantity; // Multiply by quantity
+      const sellingPrice = parseFloat(item.sellingPrice);
+      const gst = sellingPrice * 0.18;
+      const totalPriceWithGST = (sellingPrice + gst) * item.quantity;
       return total + totalPriceWithGST;
     }, 0);
   };
-  const handleCheckout = () => {
+
+  const handleCheckout = async () => {
     const total = calculateTotal(); // Get the total amount
-    navigate('/checkout', { state: { items: billingCart, total } }); // Pass structured data
+    const vendorEmail = localStorage.getItem('vendoremail');
+
+    if (!vendorEmail) {
+      alert('Vendor email is not available. Please log in.');
+      return;
+    }
+
+    // Prepare bill data to submit
+    const billId = Math.floor(10000 + Math.random() * 90000);
+
+    const billData = {
+      billId, // Add the generated bill ID
+      email: vendorEmail,
+      items: billingCart,
+      totalAmount: total,
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString(),
+    };
+
+    try {
+      // Submit the bill to the backend
+      const response = await axios.post(
+        'https://superbill-api.vercel.app/postbill',
+        { vendoremail: vendorEmail, billData } // Pass the data correctly
+      );
+
+      if (response.data.success) {
+        // Successfully submitted the bill, navigate to checkout
+        navigate('/checkout', { state: { items: billingCart, total } });
+      } else {
+        alert('Error submitting the bill. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error submitting the bill:', error);
+      alert('An error occurred while submitting the bill. Please try again.');
+    }
   };
 
   return (

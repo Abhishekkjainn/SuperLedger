@@ -1,8 +1,61 @@
 import { useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import axios from 'axios';
 
 function Checkout() {
   const location = useLocation();
   const billingData = location.state; // Retrieve data passed from Inventory
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Get vendor email from localStorage
+  const vendorEmail = localStorage.getItem('vendoremail');
+
+  const handleSubmitBill = async () => {
+    if (
+      !vendorEmail ||
+      !billingData ||
+      !billingData.items ||
+      billingData.items.length === 0
+    ) {
+      setErrorMessage(
+        'Invalid bill data or vendor email. Please check your data.'
+      );
+      return;
+    }
+
+    // Prepare data to send to the API
+    const billData = {
+      email: vendorEmail,
+      items: billingData.items,
+      totalAmount: billingData.total,
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString(),
+    };
+
+    try {
+      setIsSubmitting(true);
+      // Make POST request to your API to submit the bill
+      const response = await axios.post(
+        'https://your-api-endpoint.com/submit-bill', // Replace with your actual API endpoint
+        billData
+      );
+
+      if (response.data.success) {
+        alert('Bill submitted successfully!');
+        // You can redirect the user or show a success message
+      } else {
+        setErrorMessage('Error submitting the bill. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error submitting the bill:', error);
+      setErrorMessage(
+        'An error occurred while submitting the bill. Please try again.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="checkout-container">
@@ -62,6 +115,17 @@ function Checkout() {
       <div className="bill-footer">
         <p className="footer-thankyou">Thank you for shopping with us!</p>
         <p className="footer-note">Powered by SuperBill</p>
+      </div>
+
+      <div className="submit-button-container">
+        {errorMessage && <p className="error-message">{errorMessage}</p>}
+        <button
+          onClick={handleSubmitBill}
+          disabled={isSubmitting}
+          className="submit-bill-button"
+        >
+          {isSubmitting ? 'Submitting...' : 'Submit Bill'}
+        </button>
       </div>
     </div>
   );
